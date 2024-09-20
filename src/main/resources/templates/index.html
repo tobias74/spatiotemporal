@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome Page</title>
+    <link rel="stylesheet" href="/css/styles.css"> <!-- Assuming a CSS file in static folder -->
+</head>
+
+<body>
+
+    <header>
+        <h1>Welcome to Spatiotemporal Application</h1>
+    </header>
+
+    <main>
+        <p>This is a simple template for Spring Boot's Thymeleaf integration.</p>
+
+        <!-- Example dynamic data -->
+        <p th:text="'Hello, ' + ${username} + '!'">Hello, User!</p>
+    </main>
+
+    <footer>
+        <p>Copyright &copy; 2024 Spatiotemporal App</p>
+    </footer>
+
+</body>
+
+</html>
