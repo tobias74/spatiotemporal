@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<profiles version="12">
+  <profile kind="CodeFormatterProfile" name="CustomJavaFormat" version="12">
+    <!-- Set maximum line length before wrapping -->
+    <setting id="org.eclipse.jdt.core.formatter.lineSplit" value="180"/>
+  </profile>
+</profiles>

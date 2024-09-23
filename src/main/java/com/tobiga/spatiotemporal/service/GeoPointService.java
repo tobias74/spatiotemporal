@@ -17,16 +17,22 @@ public class GeoPointService {
 
     // Predefined anchor points in ECEF (x, y, z) coordinates
     private static final double[][] ANCHOR_POINTS = {
-            { 0, 6371000, 0 }, // Anchor 1
-            { 0, -6371000, 0 }, // Anchor 2
-            // Add the rest of your 10 anchor points here...
+
+            { 0, 6371000, 0 }, // Anchor 1 (on the equator)
+            { 0, -6371000, 0 }, // Anchor 2 (opposite equator)
+            { 6371000, 0, 0 }, // Anchor 3
+            { -6371000, 0, 0 }, // Anchor 4
+            { 0, 0, 6371000 }, // Anchor 5 (North Pole)
+            { 0, 0, -6371000 }, // Anchor 6 (South Pole)
+            { 4500000, 4500000, 0 }, // Anchor 7
+            { -4500000, -4500000, 0 }, // Anchor 8
+            { 4500000, 0, 4500000 }, // Anchor 9
+            { 0, 4500000, -4500000 } // Anchor 10
     };
 
-    // Helper function to calculate distance between two points in 3D space
+    // Function to calculate the distance between two 3D points (in meters)
     private double calculateDistance(double[] point1, double[] point2) {
-        return Math.sqrt(Math.pow(point1[0] - point2[0], 2) +
-                Math.pow(point1[1] - point2[1], 2) +
-                Math.pow(point1[2] - point2[2], 2));
+        return Math.sqrt(Math.pow(point1[0] - point2[0], 2) + Math.pow(point1[1] - point2[1], 2) + Math.pow(point1[2] - point2[2], 2));
     }
 
     // Save GeoPoint with pre-calculated anchor distances
