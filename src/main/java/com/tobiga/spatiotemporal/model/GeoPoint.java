@@ -4,12 +4,10 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.List;
 
-@Entity
-@Table(name = "geo_points")
+@Entity @Table(name = "geo_points")
 public class GeoPoint {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private double x;
@@ -19,12 +17,11 @@ public class GeoPoint {
     @Column(nullable = false)
     private Instant timestamp;
 
-    @ElementCollection
-    @Column(name = "distances", nullable = false)
+    // Map anchor_distances as an ElementCollection to support an array or list of distances
+    @ElementCollection @CollectionTable(name = "geo_point_distances", joinColumns = @JoinColumn(name = "geo_point_id")) @Column(name = "anchor_distance", nullable = false)
     private List<Double> anchorDistances;
 
     // Constructors, getters, setters
-
     public GeoPoint() {
     }
 
