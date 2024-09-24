@@ -29,4 +29,15 @@ public class GeoPointController {
         List<GeoPoint> points = geoPointService.getPointsWithinTimeRange(start, end);
         return ResponseEntity.ok(points);
     }
+
+    @GetMapping("/query")
+    public List<GeoPoint> queryGeoPoints(
+            @RequestParam(name = "x") double queryX,
+            @RequestParam(name = "y") double queryY,
+            @RequestParam(name = "z") double queryZ,
+            @RequestParam(name = "tolerance") double tolerance) {
+
+        // Call service method to handle the query point and tolerance
+        return geoPointService.findGeoPointsNearQueryPoint(queryX, queryY, queryZ, tolerance);
+    }
 }

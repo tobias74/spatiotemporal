@@ -17,15 +17,15 @@ public class GeoPoint {
     @Column(nullable = false)
     private Instant timestamp;
 
-    // Map anchor_distances as an ElementCollection to support an array or list of distances
-    @ElementCollection @CollectionTable(name = "geo_point_distances", joinColumns = @JoinColumn(name = "geo_point_id")) @Column(name = "anchor_distance", nullable = false)
-    private List<Double> anchorDistances;
+    // Store anchor distances as an ElementCollection with embedded AnchorDistance
+    @ElementCollection @CollectionTable(name = "geo_point_distances", joinColumns = @JoinColumn(name = "geo_point_id"))
+    private List<AnchorDistance> anchorDistances;
 
-    // Constructors, getters, setters
+    // Constructors
     public GeoPoint() {
     }
 
-    public GeoPoint(double x, double y, double z, Instant timestamp, List<Double> anchorDistances) {
+    public GeoPoint(double x, double y, double z, Instant timestamp, List<AnchorDistance> anchorDistances) {
         this.x = x;
         this.y = y;
         this.z = z;
@@ -33,5 +33,52 @@ public class GeoPoint {
         this.anchorDistances = anchorDistances;
     }
 
-    // Getters and setters...
+    // Getters and setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public double getX() {
+        return x;
+    }
+
+    public void setX(double x) {
+        this.x = x;
+    }
+
+    public double getY() {
+        return y;
+    }
+
+    public void setY(double y) {
+        this.y = y;
+    }
+
+    public double getZ() {
+        return z;
+    }
+
+    public void setZ(double z) {
+        this.z = z;
+    }
+
+    public Instant getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(Instant timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public List<AnchorDistance> getAnchorDistances() {
+        return anchorDistances;
+    }
+
+    public void setAnchorDistances(List<AnchorDistance> anchorDistances) {
+        this.anchorDistances = anchorDistances;
+    }
 }
