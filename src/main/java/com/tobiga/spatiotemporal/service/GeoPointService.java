@@ -58,13 +58,16 @@ public class GeoPointService {
     }
 
     // This method takes the query point, calculates the distances to the anchors, and calls the repository
-    public List<GeoPoint> findGeoPointsNearQueryPoint(double queryX, double queryY, double queryZ, double tolerance) {
+    public List<GeoPoint> findGeoPointsNearQueryPoint(
+            double queryX, double queryY, double queryZ, double tolerance, Instant start, Instant end) {
+
         List<AnchorDistance> anchorDistances = calculateAnchorDistances(queryX, queryY, queryZ);
         List<Double> distanceValues = new ArrayList<>();
         for (AnchorDistance ad : anchorDistances) {
             distanceValues.add(ad.getAnchorDistance()); // Only get the distance values for the query
         }
-        return geoPointRepository.findGeoPointsNearQueryPoint(distanceValues, tolerance);
+
+        return geoPointRepository.findGeoPointsNearQueryPoint(distanceValues, tolerance, start, end);
     }
 
     public List<GeoPoint> getPointsWithinTimeRange(Instant start, Instant end) {

@@ -5,6 +5,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 import org.springframework.stereotype.Repository;
+import java.time.Instant;
 
 import java.util.List;
 
@@ -15,8 +16,7 @@ public class GeoPointRepositoryImpl implements GeoPointRepositoryCustom {
     private EntityManager entityManager;
 
     @Override
-    public List<GeoPoint> findGeoPointsNearQueryPoint(List<Double> anchorDistances, double tolerance) {
-        // Convert the List<Double> to a PostgreSQL-friendly string representation of an array
+    public List<GeoPoint> findGeoPointsNearQueryPoint(List<Double> anchorDistances, double tolerance, Instant start, Instant end) {
         String anchorDistancesArray = anchorDistances.toString().replace("[", "{").replace("]", "}");
 
         String sql = """
@@ -27,17 +27,18 @@ public class GeoPointRepositoryImpl implements GeoPointRepositoryCustom {
                 FROM geo_points gp
                 JOIN geo_point_distances gd ON gp.id = gd.geo_point_id
                 JOIN anchor_distances_query adq ON gd.anchor_id = adq.anchor_id
+                WHERE gp.timestamp BETWEEN ?3 AND ?4  -- Add time filtering here
                 GROUP BY gp.id, gp.x, gp.y, gp.z, gp.timestamp
                 HAVING SUM(ABS(gd.anchor_distance - adq.anchor_distance)) < ?2
                 ORDER BY distance_diff;
                 """;
 
-        // Create the native query
         Query query = entityManager.createNativeQuery(sql, GeoPoint.class);
 
-        // Set parameters
         query.setParameter(1, anchorDistancesArray);
         query.setParameter(2, tolerance);
+        query.setParameter(3, start);
+        query.setParameter(4, end);
 
         return query.getResultList();
     }

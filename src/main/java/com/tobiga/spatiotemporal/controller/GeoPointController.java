@@ -35,9 +35,15 @@ public class GeoPointController {
             @RequestParam(name = "x") double queryX,
             @RequestParam(name = "y") double queryY,
             @RequestParam(name = "z") double queryZ,
-            @RequestParam(name = "tolerance") double tolerance) {
+            @RequestParam(name = "tolerance") double tolerance,
+            @RequestParam(name = "start") String startTimestamp,
+            @RequestParam(name = "end") String endTimestamp) {
 
-        // Call service method to handle the query point and tolerance
-        return geoPointService.findGeoPointsNearQueryPoint(queryX, queryY, queryZ, tolerance);
+        // Parse the start and end timestamps from the request
+        Instant start = Instant.parse(startTimestamp);
+        Instant end = Instant.parse(endTimestamp);
+
+        // Call the service method to handle the query point, tolerance, and time range
+        return geoPointService.findGeoPointsNearQueryPoint(queryX, queryY, queryZ, tolerance, start, end);
     }
 }
