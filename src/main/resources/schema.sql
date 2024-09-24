@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS geo_point_distances (
 );
 
 -- Index on timestamp for range queries
-CREATE INDEX IF NOT EXISTS idx_timestamp ON geo_points (timestamp);
+CREATE INDEX IF NOT EXISTS idx_timestamp_anchor_distance ON geo_points (timestamp) INCLUDE (x, y, z);
+CREATE INDEX IF NOT EXISTS idx_timestamp_geo_point ON geo_points (timestamp, id);
 
 -- Indexes on geo_point_id and anchor_distance for better query performance
 CREATE INDEX IF NOT EXISTS idx_anchor_distance ON geo_point_distances (anchor_distance);

@@ -6,5 +6,5 @@ import java.time.Instant;
 
 public interface GeoPointRepositoryCustom {
     // Custom method for finding geo points near a query point
-    List<GeoPoint> findGeoPointsNearQueryPoint(List<Double> anchorDistances, double tolerance, Instant start, Instant end);
+    List<GeoPoint> findGeoPointsNearQueryPoint(List<Double> anchorDistances, Instant start, Instant end, int limit, int offset);
 }
