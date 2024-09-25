@@ -9,7 +9,7 @@ public class WebController {
 
     @GetMapping("/")
     public String index(Model model) {
-        model.addAttribute("username", "Tobiga"); // Example dynamic value
+        model.addAttribute("username", "Tobiga5"); // Example dynamic value
         return "index"; // Refers to src/main/resources/templates/index.html
     }
 }
