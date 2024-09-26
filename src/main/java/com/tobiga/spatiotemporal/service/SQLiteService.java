@@ -9,37 +9,13 @@ import org.springframework.stereotype.Service;
 public class SQLiteService {
 
     private final JdbcTemplate jdbcTemplate;
+    private final CoordinateService coordinateService;
 
-    public SQLiteService(JdbcTemplate jdbcTemplate) {
+    public SQLiteService(JdbcTemplate jdbcTemplate, CoordinateService coordinateService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.coordinateService = coordinateService;
     }
 
-    @EventListener(ContextRefreshedEvent.class)
-    public void initialize() {
-        try {
-            // Create a test table
-            String createTableSql = "CREATE TABLE IF NOT EXISTS test_table (id INTEGER PRIMARY KEY, name TEXT)";
-            jdbcTemplate.execute(createTableSql);
-            System.out.println("Table created successfully.");
-
-            // Insert a row
-            String insertSql = "INSERT INTO test_table (name) VALUES ('Sample Name')";
-            jdbcTemplate.update(insertSql);
-            System.out.println("Data inserted successfully.");
-
-            // Query the data
-            String querySql = "SELECT * FROM test_table";
-            jdbcTemplate.query(querySql, (rs, rowNum) -> {
-                System.out.println("ID: " + rs.getInt("id") + ", Name: " + rs.getString("name"));
-                return null;
-            });
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    // New initialize method for the R-tree and metadata approach
     @EventListener(ContextRefreshedEvent.class)
     public void initializeGeopoints() {
         try {
@@ -55,50 +31,36 @@ public class SQLiteService {
             // Create the metadata table for non-spatial data (timestamp)
             String createMetadataTableSql = "CREATE TABLE IF NOT EXISTS geopoint_metadata ("
                     + "id INTEGER PRIMARY KEY, "
-                    + "timestamp INTEGER)";
+                    + "timestamp INTEGER, "
+                    + "external_id TEXT)";
             jdbcTemplate.execute(createMetadataTableSql);
             System.out.println("Metadata table created successfully.");
 
-            // Insert sample data into both tables
-            insertSampleGeopoint(1, 0.0, 0.0, 0.0, System.currentTimeMillis());
-            insertSampleGeopoint(2, 10.0, 10.0, 10.0, System.currentTimeMillis());
-
-            // Query the R-tree and metadata table
-            String querySql = "SELECT g.id, g.minX, g.minY, g.minZ, m.timestamp "
-                    + "FROM geopoints g "
-                    + "JOIN geopoint_metadata m ON g.id = m.id "
-                    + "WHERE m.timestamp > ? "
-                    + "ORDER BY m.timestamp ASC";
-
-            jdbcTemplate.query(querySql, new Object[]{System.currentTimeMillis() - 1000}, (rs, rowNum) -> {
-                System.out.println("ID: " + rs.getInt("id") + ", minX: " + rs.getDouble("minX")
-                        + ", minY: " + rs.getDouble("minY") + ", minZ: " + rs.getDouble("minZ")
-                        + ", Timestamp: " + rs.getLong("timestamp"));
-                return null;
-            });
-
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    // Helper method to insert data into both the R-tree and metadata tables
-    private void insertSampleGeopoint(int id, double x, double y, double z, long timestamp) {
-        try {
-            // Insert into R-tree (geopoints)
-            String insertRtreeSql = "INSERT INTO geopoints (id, minX, maxX, minY, maxY, minZ, maxZ) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, ?)";
-            jdbcTemplate.update(insertRtreeSql, id, x, x, y, y, z, z);
+    // New method to insert geopoints with lat/lon/alt
+    public void insertGeopointWithLatLon(double lat, double lon,  String externalId) {
+        // Convert lat/lon/alt to XYZ coordinates
+        double[] xyz = coordinateService.convertLatLonToXYZ(lat, lon, 0);
+        long timestamp = System.currentTimeMillis();
 
-            // Insert into metadata table (geopoint_metadata)
-            String insertMetadataSql = "INSERT INTO geopoint_metadata (id, timestamp) "
-                    + "VALUES (?, ?)";
-            jdbcTemplate.update(insertMetadataSql, id, timestamp);
+        // Generate a unique ID (use timestamp or another strategy)
+        int id = (int) (timestamp / 1000); // Example: Use timestamp (in seconds) as ID
 
-            System.out.println("Geopoint " + id + " inserted successfully.");
+        // Insert into R-tree table (geopoints)
+        String insertRtreeSql = "INSERT INTO geopoints (id, minX, maxX, minY, maxY, minZ, maxZ) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        jdbcTemplate.update(insertRtreeSql, id, xyz[0], xyz[0], xyz[1], xyz[1], xyz[2], xyz[2]);
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        // Insert into metadata table (geopoint_metadata with external_id)
+        String insertMetadataSql = "INSERT INTO geopoint_metadata (id, timestamp, external_id) "
+                + "VALUES (?, ?, ?)";
+        jdbcTemplate.update(insertMetadataSql, id, timestamp, externalId);
+
+        System.out.println("Geopoint inserted: ID=" + id + ", Lat=" + lat + ", Lon=" + lon + ", External ID=" + externalId);
     }
+
 }
