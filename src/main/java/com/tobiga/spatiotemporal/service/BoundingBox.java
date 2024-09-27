@@ -80,6 +80,14 @@ public class BoundingBox {
                 (this.minZ <= other.maxZ && this.maxZ >= other.minZ);
     }
 
+    public double distanceTo(Coordinate queryPoint) {
+        double dx = Math.max(0, Math.max(minX - queryPoint.getX(), queryPoint.getX() - maxX));
+        double dy = Math.max(0, Math.max(minY - queryPoint.getY(), queryPoint.getY() - maxY));
+        double dz = Math.max(0, Math.max(minZ - queryPoint.getZ(), queryPoint.getZ() - maxZ));
+
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
     @Override
     public String toString() {
         return "BoundingBox{" +

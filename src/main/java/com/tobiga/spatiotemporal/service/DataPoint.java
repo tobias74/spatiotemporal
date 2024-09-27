@@ -1,6 +1,6 @@
 package com.tobiga.spatiotemporal.service;
 
-public class DataPoint {
+public class DataPoint implements Coordinate{
     private double x;
     private double y;
     private double z;
@@ -54,15 +54,6 @@ public class DataPoint {
 
     public void setTimestamp(long timestamp) {
         this.timestamp = timestamp;
-    }
-
-    // Method to calculate distance from this point to another
-    public double distanceTo(DataPoint other) {
-        return Math.sqrt(
-                Math.pow(this.x - other.x, 2) +
-                        Math.pow(this.y - other.y, 2) +
-                        Math.pow(this.z - other.z, 2)
-        );
     }
 
     @Override

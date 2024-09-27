@@ -2,8 +2,13 @@ package com.tobiga.spatiotemporal.service;
 
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.PriorityQueue;
 
 
 @Service
@@ -41,6 +46,24 @@ public class RTreeService {
                     "FOREIGN KEY(node_id) REFERENCES rtree_nodes(id)" +
                     ");");
 
+
+            // Check if the root node exists by ID 1
+            Integer rootExists = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM rtree_nodes WHERE id = 1", Integer.class);
+
+            // If the root node doesn't exist, insert it
+            if (rootExists == 0) {
+                jdbcTemplate.update("INSERT INTO rtree_nodes (id, parent_id, minX, maxX, minY, maxY, minZ, maxZ, isLeaf) " +
+                                "VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)",
+                        1,  // id of the root node
+                        Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,  // Bounding box (entire space)
+                        Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,
+                        Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,
+                        true
+                );
+                System.out.println("Root node inserted into the database.");
+            }
+
             System.out.println("R-tree and DataPoint tables created successfully.");
         } catch (Exception e) {
             e.printStackTrace();
@@ -63,12 +86,48 @@ public class RTreeService {
     }
 
     private int findLeafNodeForPoint(double x, double y, double z) {
-        // Implement logic to find the appropriate leaf node using R-tree traversal
-        // For now, assume 1 as the root node
-        return 1;
+        // Start by loading the root node
+        RTreeNode currentNode = loadRootFromDatabase();
+
+        // The point to insert
+        Point point = new Point(x, y, z);
+
+        // Traverse the tree until we reach a leaf node
+        while (!currentNode.isLeaf()) {
+            // Load the children of the current node
+            List<RTreeNode> children = loadChildrenFromDatabase(currentNode);
+
+            if (children.isEmpty()) {
+                // Handle the case where there are no children
+                System.out.println("No children found for node " + currentNode.getId() + ", treating as a leaf node.");
+                return currentNode.getId();  // Return the current node if no children are found
+            }
+
+            // Find the child whose bounding box is closest to the point
+            RTreeNode bestChild = null;
+            double bestDistance = Double.MAX_VALUE;
+
+            for (RTreeNode child : children) {
+                double distance = child.getBoundingBox().distanceTo(point);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestChild = child;
+                }
+            }
+
+            // Ensure bestChild is not null (shouldn't be null if children exist)
+            if (bestChild == null) {
+                throw new IllegalStateException("No suitable child node found for point " + point);
+            }
+
+            // Move down the tree to the selected child
+            currentNode = bestChild;
+        }
+
+        // Return the ID of the leaf node
+        return currentNode.getId();
     }
 
-/*
     public List<DataPoint> findNearestNeighbors(Point queryPoint, int limit) {
         RTreeNode root = loadRootFromDatabase();
         PriorityQueue<RTreeNode> nodeQueue = new PriorityQueue<>(new DistanceComparator(queryPoint));
@@ -86,25 +145,32 @@ public class RTreeService {
         return result;
     }
 
-    private RTreeNode loadRootFromDatabase() {
-        // SQL query to load the root node from the database
-        return jdbcTemplate.queryForObject("SELECT * FROM rtree_nodes WHERE parent_id IS NULL",
+    private RTreeNode loadNodeFromDatabase(int nodeId) {
+        String query = "SELECT * FROM rtree_nodes WHERE id = ?";
+
+        return jdbcTemplate.queryForObject(query,
+                new Object[]{nodeId},
                 (rs, rowNum) -> new RTreeNode(
+                        rs.getInt("id"),
                         new BoundingBox(rs.getDouble("minX"), rs.getDouble("maxX"),
                                 rs.getDouble("minY"), rs.getDouble("maxY"),
                                 rs.getDouble("minZ"), rs.getDouble("maxZ")),
                         rs.getBoolean("isLeaf")));
     }
 
+
+    private RTreeNode loadRootFromDatabase() {
+        return loadNodeFromDatabase(1);  // Explicitly load the root node with id 1
+    }
+
     private List<RTreeNode> loadChildrenFromDatabase(RTreeNode parent) {
-        // SQL query to load children nodes from the database
         return jdbcTemplate.query("SELECT * FROM rtree_nodes WHERE parent_id = ?",
                 new Object[]{parent.getId()},
                 (rs, rowNum) -> new RTreeNode(
+                        rs.getInt("id"),
                         new BoundingBox(rs.getDouble("minX"), rs.getDouble("maxX"),
                                 rs.getDouble("minY"), rs.getDouble("maxY"),
                                 rs.getDouble("minZ"), rs.getDouble("maxZ")),
                         rs.getBoolean("isLeaf")));
     }
-*/
 }
