@@ -8,6 +8,21 @@ public class BoundingBox {
     private double minZ;
     private double maxZ;
 
+
+    public static BoundingBox combine(BoundingBox box1, BoundingBox box2) {
+        double combinedMinX = Math.min(box1.getMinX(), box2.getMinX());
+        double combinedMaxX = Math.max(box1.getMaxX(), box2.getMaxX());
+
+        double combinedMinY = Math.min(box1.getMinY(), box2.getMinY());
+        double combinedMaxY = Math.max(box1.getMaxY(), box2.getMaxY());
+
+        double combinedMinZ = Math.min(box1.getMinZ(), box2.getMinZ());
+        double combinedMaxZ = Math.max(box1.getMaxZ(), box2.getMaxZ());
+
+        // Create and return the new bounding box that contains both
+        return new BoundingBox(combinedMinX, combinedMaxX, combinedMinY, combinedMaxY, combinedMinZ, combinedMaxZ);
+    }
+
     public BoundingBox(double minX, double maxX, double minY, double maxY, double minZ, double maxZ) {
         this.minX = minX;
         this.maxX = maxX;
@@ -16,6 +31,16 @@ public class BoundingBox {
         this.minZ = minZ;
         this.maxZ = maxZ;
     }
+
+    public BoundingBox(DataPoint point) {
+        this.minX = point.getX();
+        this.maxX = point.getX();
+        this.minY = point.getY();
+        this.maxY = point.getY();
+        this.minZ = point.getZ();
+        this.maxZ = point.getZ();
+    }
+
 
     // Getters and Setters
     public double getMinX() {
@@ -87,6 +112,35 @@ public class BoundingBox {
 
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
+
+    public double enlargementNeeded(DataPoint point) {
+        double enlargementX = 0, enlargementY = 0, enlargementZ = 0;
+
+        // Check if the point extends the bounding box in the X axis
+        if (point.getX() < minX) {
+            enlargementX = minX - point.getX();
+        } else if (point.getX() > maxX) {
+            enlargementX = point.getX() - maxX;
+        }
+
+        // Check if the point extends the bounding box in the Y axis
+        if (point.getY() < minY) {
+            enlargementY = minY - point.getY();
+        } else if (point.getY() > maxY) {
+            enlargementY = point.getY() - maxY;
+        }
+
+        // Check if the point extends the bounding box in the Z axis
+        if (point.getZ() < minZ) {
+            enlargementZ = minZ - point.getZ();
+        } else if (point.getZ() > maxZ) {
+            enlargementZ = point.getZ() - maxZ;
+        }
+
+        // Sum up the enlargement in all dimensions
+        return enlargementX + enlargementY + enlargementZ;
+    }
+
 
     @Override
     public String toString() {

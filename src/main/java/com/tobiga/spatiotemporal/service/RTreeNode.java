@@ -5,14 +5,16 @@ import java.util.List;
 public class RTreeNode {
     private int id;  // Add an id field to identify the node
     private BoundingBox boundingBox;
-    private List<RTreeNode> children;
-    private List<DataPoint> dataPoints;  // Leaf node data
     private boolean isLeaf;
+    private boolean isRoot;
+    private Integer parentId;
 
-    public RTreeNode(int id, BoundingBox boundingBox, boolean isLeaf) {
+    public RTreeNode(int id, Integer parentId, BoundingBox boundingBox, boolean isLeaf, boolean isRoot) {
         this.id = id;
+        this.parentId = parentId;  // Set the parent ID
         this.boundingBox = boundingBox;
         this.isLeaf = isLeaf;
+        this.isRoot = isRoot;
     }
 
     // Getter and setter for id
@@ -24,6 +26,10 @@ public class RTreeNode {
         this.id = id;
     }
 
+    public Integer getParentId() {
+        return parentId;
+    }
+
     public boolean isLeaf() {
         return isLeaf;
     }
@@ -32,12 +38,12 @@ public class RTreeNode {
         return boundingBox;
     }
 
-    public List<RTreeNode> getChildren() {
-        return children;
+    public boolean isRoot() {
+        return isRoot;
     }
 
-    public List<DataPoint> getDataPoints() {
-        return dataPoints;
+    public void setRoot(boolean isRoot) {
+        this.isRoot = isRoot;
     }
 
     // Add methods for adding children, inserting data, etc.
