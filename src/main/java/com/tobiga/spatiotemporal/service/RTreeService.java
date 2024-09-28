@@ -25,7 +25,7 @@ public class RTreeService {
     @EventListener(ContextRefreshedEvent.class)
     public void initializeGeopoints() {
         try {
-            // Create the R-tree nodes table
+            // Create the R-tree nodes table if it doesn't exist
             jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS rtree_nodes (" +
                     "id INTEGER PRIMARY KEY, " +
                     "parent_id INTEGER, " +
@@ -36,7 +36,7 @@ public class RTreeService {
                     "FOREIGN KEY(parent_id) REFERENCES rtree_nodes(id)" +
                     ");");
 
-            // Create the data points table (associated with leaf nodes)
+            // Create the data points table if it doesn't exist
             jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS data_points (" +
                     "id INTEGER PRIMARY KEY, " +
                     "node_id INTEGER, " +
@@ -46,25 +46,44 @@ public class RTreeService {
                     "FOREIGN KEY(node_id) REFERENCES rtree_nodes(id)" +
                     ");");
 
+            // Create the metadata table to track the current root node
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS rtree_metadata (" +
+                    "id INTEGER PRIMARY KEY, " +
+                    "current_root_id INTEGER" +
+                    ");");
 
-            // Check if the root node exists by ID 1
-            Integer rootExists = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM rtree_nodes WHERE id = 1", Integer.class);
+            // Check if metadata exists
+            Integer metadataExists = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM rtree_metadata WHERE id = 1", Integer.class);
 
-            // If the root node doesn't exist, insert it
-            if (rootExists == 0) {
-                jdbcTemplate.update("INSERT INTO rtree_nodes (id, parent_id, minX, maxX, minY, maxY, minZ, maxZ, isLeaf) " +
-                                "VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)",
-                        1,  // id of the root node
-                        Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,  // Bounding box (entire space)
-                        Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,
-                        Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,
-                        true
+            if (metadataExists == 0) {
+                // Check if the root node already exists
+                Integer rootExists = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM rtree_nodes WHERE id = 1", Integer.class);
+
+                if (rootExists == 0) {
+                    // Insert the initial root node if it doesn't exist
+                    jdbcTemplate.update("INSERT INTO rtree_nodes (id, parent_id, minX, maxX, minY, maxY, minZ, maxZ, isLeaf) " +
+                                    "VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)",
+                            1,  // Root node ID
+                            Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,  // Bounding box (entire space)
+                            Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,
+                            Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,
+                            true  // Root is a leaf initially
+                    );
+                    System.out.println("Root node inserted.");
+                }
+
+                // Insert the root ID into the metadata table
+                jdbcTemplate.update("INSERT INTO rtree_metadata (id, current_root_id) VALUES (?, ?)",
+                        1,  // Metadata entry ID
+                        1   // Root node ID
                 );
-                System.out.println("Root node inserted into the database.");
+                System.out.println("Metadata initialized with root node ID.");
+            } else {
+                System.out.println("Metadata and root node already initialized.");
             }
 
-            System.out.println("R-tree and DataPoint tables created successfully.");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -159,8 +178,9 @@ public class RTreeService {
     }
 
 
-    private RTreeNode loadRootFromDatabase() {
-        return loadNodeFromDatabase(1);  // Explicitly load the root node with id 1
+    public RTreeNode loadRootFromDatabase() {
+        Integer rootId = jdbcTemplate.queryForObject("SELECT current_root_id FROM rtree_metadata WHERE id = 1", Integer.class);
+        return loadNodeFromDatabase(rootId);
     }
 
     private List<RTreeNode> loadChildrenFromDatabase(RTreeNode parent) {
@@ -172,5 +192,10 @@ public class RTreeService {
                                 rs.getDouble("minY"), rs.getDouble("maxY"),
                                 rs.getDouble("minZ"), rs.getDouble("maxZ")),
                         rs.getBoolean("isLeaf")));
+    }
+
+    public void updateRootNode(int newRootId) {
+        jdbcTemplate.update("UPDATE rtree_metadata SET current_root_id = ? WHERE id = 1", newRootId);
+        System.out.println("Root node updated to " + newRootId);
     }
 }
