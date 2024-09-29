@@ -10,6 +10,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.PriorityQueue;
 
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+
+import java.sql.PreparedStatement;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -40,7 +45,7 @@ public class RTreeService {
         try {
             // Create the R-tree nodes table if it doesn't exist
             jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS rtree_nodes (" +
-                    "id INTEGER PRIMARY KEY, " +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                     "parent_id INTEGER, " +
                     "minX REAL, maxX REAL, " +
                     "minY REAL, maxY REAL, " +
@@ -265,21 +270,45 @@ public class RTreeService {
         return jdbcTemplate.queryForObject(query, new Object[]{nodeId}, Integer.class);
     }
 
+    public void insertNewNode(RTreeNode node) {
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+
+        String sql = "INSERT INTO rtree_nodes (parent_id, minX, maxX, minY, maxY, minZ, maxZ, isLeaf) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(sql, new String[]{"id"});
+            ps.setObject(1, node.getParentId());  // parent_id can be null
+            ps.setDouble(2, node.getBoundingBox().getMinX());
+            ps.setDouble(3, node.getBoundingBox().getMaxX());
+            ps.setDouble(4, node.getBoundingBox().getMinY());
+            ps.setDouble(5, node.getBoundingBox().getMaxY());
+            ps.setDouble(6, node.getBoundingBox().getMinZ());
+            ps.setDouble(7, node.getBoundingBox().getMaxZ());
+            ps.setBoolean(8, node.isLeaf());
+            return ps;
+        }, keyHolder);
+
+        // Retrieve the auto-generated ID from the database and update the node
+        node.setId(keyHolder.getKey().intValue());
+    }
+
+    public void updateParent(int parentId, int childId) {
+        jdbcTemplate.update("UPDATE rtree_nodes SET parent_id = ? WHERE id = ?", parentId, childId);
+    }
+
+    public void deleteNode(int nodeId) {
+        jdbcTemplate.update("DELETE FROM rtree_nodes WHERE id = ?", nodeId);
+    }
+
 
     private void splitNodeRecursive(RTreeNode node) {
-        // Perform the split and get the new nodes
+        // Perform the split using the strategy (strategy handles root/non-root distinction)
         List<RTreeNode> newNodes = splitStrategy.splitNode(node);
 
-        if (node.isRoot()) {
-            // If we're splitting the root, create a new root
-            RTreeNode newRoot = createNewRoot(newNodes.get(0), newNodes.get(1));
-            updateRootNode(newRoot.getId());
-        } else {
-            // Otherwise, insert the new nodes into the parent
+        // In case of a non-root node, handle recursive splitting of parent if needed
+        if (!node.isRoot()) {
             RTreeNode parentNode = loadNodeFromDatabase(node.getParentId());
-            insertNodesIntoParent(parentNode, newNodes);
-
-            // Check if the parent also needs splitting
             if (getNodeSize(parentNode.getId()) > NODE_CAPACITY) {
                 splitNodeRecursive(parentNode);  // Recursively split the parent
             }
@@ -287,65 +316,66 @@ public class RTreeService {
     }
 
     public void insertNodesIntoParent(RTreeNode parentNode, List<RTreeNode> newNodes) {
-        // Update the parent_id of the new child nodes to point to the parent
         for (RTreeNode newNode : newNodes) {
-            jdbcTemplate.update("UPDATE rtree_nodes SET parent_id = ? WHERE id = ?",
-                    parentNode.getId(), newNode.getId());
+            KeyHolder keyHolder = new GeneratedKeyHolder();
 
-            // Optionally insert the new node into the database if not already inserted
-            jdbcTemplate.update("INSERT INTO rtree_nodes (id, parent_id, minX, maxX, minY, maxY, minZ, maxZ, isLeaf) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    newNode.getId(),
-                    parentNode.getId(),
-                    newNode.getBoundingBox().getMinX(), newNode.getBoundingBox().getMaxX(),
-                    newNode.getBoundingBox().getMinY(), newNode.getBoundingBox().getMaxY(),
-                    newNode.getBoundingBox().getMinZ(), newNode.getBoundingBox().getMaxZ(),
-                    newNode.isLeaf());
+            String sql = "INSERT INTO rtree_nodes (parent_id, minX, maxX, minY, maxY, minZ, maxZ, isLeaf) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+            jdbcTemplate.update(connection -> {
+                PreparedStatement ps = connection.prepareStatement(sql, new String[]{"id"});
+                ps.setObject(1, parentNode.getId());  // Set the correct parent ID
+                ps.setDouble(2, newNode.getBoundingBox().getMinX());
+                ps.setDouble(3, newNode.getBoundingBox().getMaxX());
+                ps.setDouble(4, newNode.getBoundingBox().getMinY());
+                ps.setDouble(5, newNode.getBoundingBox().getMaxY());
+                ps.setDouble(6, newNode.getBoundingBox().getMinZ());
+                ps.setDouble(7, newNode.getBoundingBox().getMaxZ());
+                ps.setBoolean(8, newNode.isLeaf());
+                return ps;
+            }, keyHolder);
+
+            // Assign the generated ID to the newNode
+            int generatedId = keyHolder.getKey().intValue();
+            newNode.setId(generatedId);
+
+            System.out.println("New node inserted with ID: " + generatedId);
         }
-
-        // Update the bounding box of the parent to include both new nodes
-        BoundingBox updatedBoundingBox = BoundingBox.combine(parentNode.getBoundingBox(),
-                newNodes.get(0).getBoundingBox());
-        updatedBoundingBox = BoundingBox.combine(updatedBoundingBox, newNodes.get(1).getBoundingBox());
-
-        // Update the parent node's bounding box in the database
-        jdbcTemplate.update("UPDATE rtree_nodes SET minX = ?, maxX = ?, minY = ?, maxY = ?, minZ = ?, maxZ = ? WHERE id = ?",
-                updatedBoundingBox.getMinX(), updatedBoundingBox.getMaxX(),
-                updatedBoundingBox.getMinY(), updatedBoundingBox.getMaxY(),
-                updatedBoundingBox.getMinZ(), updatedBoundingBox.getMaxZ(),
-                parentNode.getId());
     }
 
-    public int generateNewNodeId() {
-        // Query the current maximum ID in the table and increment it
-        Integer maxId = jdbcTemplate.queryForObject("SELECT MAX(id) FROM rtree_nodes", Integer.class);
-        return (maxId != null ? maxId + 1 : 1);  // Start from 1 if no nodes exist
-    }
 
     private RTreeNode createNewRoot(RTreeNode child1, RTreeNode child2) {
-        // Generate a new ID for the new root node (this could be auto-increment or some custom logic)
-        int newRootId = generateNewNodeId();
+        KeyHolder keyHolder = new GeneratedKeyHolder();
 
-        // Calculate the bounding box of the new root as the minimum bounding box that covers both children
         BoundingBox newRootBoundingBox = BoundingBox.combine(child1.getBoundingBox(), child2.getBoundingBox());
 
-        // Create the new root node (it is not a leaf, but it is the root)
-        RTreeNode newRoot = new RTreeNode(newRootId, null, newRootBoundingBox, false, true);
+        String sql = "INSERT INTO rtree_nodes (parent_id, minX, maxX, minY, maxY, minZ, maxZ, isLeaf) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         // Insert the new root node into the database
-        jdbcTemplate.update("INSERT INTO rtree_nodes (id, parent_id, minX, maxX, minY, maxY, minZ, maxZ, isLeaf) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                newRootId, null,  // parent_id is null because this is the root
-                newRootBoundingBox.getMinX(), newRootBoundingBox.getMaxX(),
-                newRootBoundingBox.getMinY(), newRootBoundingBox.getMaxY(),
-                newRootBoundingBox.getMinZ(), newRootBoundingBox.getMaxZ(),
-                false  // isLeaf is false because this is not a leaf node
-        );
+        jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(sql, new String[]{"id"});
+            ps.setNull(1, java.sql.Types.INTEGER);  // Root node has no parent, so parent_id is null
+            ps.setDouble(2, newRootBoundingBox.getMinX());
+            ps.setDouble(3, newRootBoundingBox.getMaxX());
+            ps.setDouble(4, newRootBoundingBox.getMinY());
+            ps.setDouble(5, newRootBoundingBox.getMaxY());
+            ps.setDouble(6, newRootBoundingBox.getMinZ());
+            ps.setDouble(7, newRootBoundingBox.getMaxZ());
+            ps.setBoolean(8, false);  // Root is not a leaf
+            return ps;
+        }, keyHolder);
 
-        // Update the parent ID of the child nodes to point to the new root
+        // Retrieve the generated ID
+        int newRootId = keyHolder.getKey().intValue();
+
+        // Create the new root node with the assigned ID
+        RTreeNode newRoot = new RTreeNode(newRootId, null, newRootBoundingBox, false, true);
+
+        // Update the child nodes with the new root ID
         jdbcTemplate.update("UPDATE rtree_nodes SET parent_id = ? WHERE id = ?", newRootId, child1.getId());
         jdbcTemplate.update("UPDATE rtree_nodes SET parent_id = ? WHERE id = ?", newRootId, child2.getId());
 
-        // Return the new root node
         return newRoot;
     }
 

@@ -18,31 +18,32 @@ public class QuadraticSplitStrategy implements SplitStrategy {
 
     @Override
     public List<RTreeNode> splitNode(RTreeNode node) {
-        // Use the RTreeService to load data points from the database
         List<DataPoint> dataPoints = rTreeService.loadDataPointsFromNode(node.getId());
 
         // Step 1: Choose two seeds that will start the two groups
         Pair<DataPoint, DataPoint> seeds = chooseSeeds(dataPoints);
 
-        // Create two new nodes initialized with the seeds
-        RTreeNode newNode1 = new RTreeNode(rTreeService.generateNewNodeId(), node.getId(), new BoundingBox(seeds.getLeft()), true, false);
-        RTreeNode newNode2 = new RTreeNode(rTreeService.generateNewNodeId(), node.getId(), new BoundingBox(seeds.getRight()), true, false);
+        // Create two new child nodes (without ID initially)
+        RTreeNode newNode1 = new RTreeNode(null, node.getId(), new BoundingBox(seeds.getLeft()), true, false);
+        RTreeNode newNode2 = new RTreeNode(null, node.getId(), new BoundingBox(seeds.getRight()), true, false);
 
-        // Insert the seed points into the new nodes
+        // Insert the nodes and get their IDs updated
+        rTreeService.insertNewNode(newNode1);
+        rTreeService.insertNewNode(newNode2);
+
+        // Insert data points into nodes
         rTreeService.insertDataPointIntoNode(newNode1, seeds.getLeft());
         rTreeService.insertDataPointIntoNode(newNode2, seeds.getRight());
 
-        // Step 2: Assign the remaining data points to one of the two new nodes
+        // Step 4: Process remaining points and assign them to the nodes
         List<DataPoint> remainingPoints = new ArrayList<>(dataPoints);
         remainingPoints.remove(seeds.getLeft());
         remainingPoints.remove(seeds.getRight());
 
         for (DataPoint point : remainingPoints) {
-            // Calculate the enlargement needed for both nodes if the point is added
             double enlargement1 = newNode1.getBoundingBox().enlargementNeeded(point);
             double enlargement2 = newNode2.getBoundingBox().enlargementNeeded(point);
 
-            // Assign the point to the node that requires the least enlargement
             if (enlargement1 < enlargement2) {
                 rTreeService.insertDataPointIntoNode(newNode1, point);
             } else {
@@ -50,8 +51,26 @@ public class QuadraticSplitStrategy implements SplitStrategy {
             }
         }
 
-        // Return the two new nodes
-        return List.of(newNode1, newNode2);
+        // Check if the current node is the root
+        if (node.isRoot()) {
+            // Create a new root
+            RTreeNode newRoot = new RTreeNode(null, null, BoundingBox.combine(newNode1.getBoundingBox(), newNode2.getBoundingBox()), false, true);
+            rTreeService.insertNewNode(newRoot);
+
+            // Set the parent of new nodes to the new root
+            rTreeService.updateParent(newRoot.getId(), newNode1.getId());
+            rTreeService.updateParent(newRoot.getId(), newNode2.getId());
+
+            // Update metadata to point to the new root
+            rTreeService.updateRootNode(newRoot.getId());
+
+            // Optionally delete the old root node from the database (since it's no longer needed)
+            rTreeService.deleteNode(node.getId());
+
+            return List.of(newNode1, newNode2);  // Return the new child nodes of the new root
+        }
+
+        return List.of(newNode1, newNode2);  // Return the two new nodes for non-root cases
     }
 
     private Pair<DataPoint, DataPoint> chooseSeeds(List<DataPoint> dataPoints) {

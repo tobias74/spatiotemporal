@@ -3,13 +3,13 @@ package com.tobiga.spatiotemporal.service;
 import java.util.List;
 
 public class RTreeNode {
-    private int id;  // Add an id field to identify the node
+    private Integer id;  // Add an id field to identify the node
     private BoundingBox boundingBox;
     private boolean isLeaf;
     private boolean isRoot;
     private Integer parentId;
 
-    public RTreeNode(int id, Integer parentId, BoundingBox boundingBox, boolean isLeaf, boolean isRoot) {
+    public RTreeNode(Integer id, Integer parentId, BoundingBox boundingBox, boolean isLeaf, boolean isRoot) {
         this.id = id;
         this.parentId = parentId;  // Set the parent ID
         this.boundingBox = boundingBox;
