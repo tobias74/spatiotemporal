@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.PriorityQueue;
 
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -431,5 +433,68 @@ public class RTreeService {
 
         return parentId;
     }
+
+    public List<Map<String, Object>> getNearestGeopoints(double lat, double lon, long startTimestamp, long endTimestamp, int limit, int offset) {
+        // Convert lat/lon to XYZ coordinates
+        double[] queryPointXYZ = coordinateService.convertLatLonToXYZ(lat, lon, 0);
+        double queryX = queryPointXYZ[0], queryY = queryPointXYZ[1], queryZ = queryPointXYZ[2];
+
+        // Initialize a priority queue to store nodes sorted by distance
+        PriorityQueue<RTreeNode> nodeQueue = new PriorityQueue<>(new DistanceComparator(queryX, queryY, queryZ));
+        RTreeNode root = loadRootFromDatabase();
+        nodeQueue.add(root);
+
+        List<DataPoint> candidatePoints = new ArrayList<>();
+
+        // Traverse the R-tree to gather potential candidate points
+        while (!nodeQueue.isEmpty() && candidatePoints.size() < limit + offset) {
+            RTreeNode currentNode = nodeQueue.poll();
+
+            // Check if we have reached a leaf node
+            if (loadChildrenFromDatabase(currentNode).isEmpty()) {
+                // If it's a leaf, gather data points and filter by timestamp
+                List<DataPoint> pointsInNode = loadDataPointsFromNode(currentNode.getId());
+                for (DataPoint point : pointsInNode) {
+                    if (point.getTimestamp() >= startTimestamp && point.getTimestamp() <= endTimestamp) {
+                        candidatePoints.add(point);
+                    }
+                }
+            } else {
+                // If it's an internal node, add its children to the queue
+                nodeQueue.addAll(loadChildrenFromDatabase(currentNode));
+            }
+        }
+
+        // Sort candidate points by distance to the query point
+        candidatePoints.sort((p1, p2) -> {
+            double dist1 = Math.sqrt(Math.pow(p1.getX() - queryX, 2) + Math.pow(p1.getY() - queryY, 2) + Math.pow(p1.getZ() - queryZ, 2));
+            double dist2 = Math.sqrt(Math.pow(p2.getX() - queryX, 2) + Math.pow(p2.getY() - queryY, 2) + Math.pow(p2.getZ() - queryZ, 2));
+            return Double.compare(dist1, dist2);
+        });
+
+        // Apply pagination (offset and limit)
+        List<DataPoint> paginatedPoints = candidatePoints.stream()
+                .skip(offset)
+                .limit(limit)
+                .toList();
+
+        // Map the result to a list of maps
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (DataPoint point : paginatedPoints) {
+            Map<String, Object> result = new HashMap<>();
+            result.put("id", point.getId());
+            result.put("x", point.getX());
+            result.put("y", point.getY());
+            result.put("z", point.getZ());
+            result.put("externalId", point.getExternalId());
+            result.put("timestamp", point.getTimestamp());
+            double distance = Math.sqrt(Math.pow(point.getX() - queryX, 2) + Math.pow(point.getY() - queryY, 2) + Math.pow(point.getZ() - queryZ, 2));
+            result.put("distance", distance);
+            results.add(result);
+        }
+
+        return results;
+    }
+
 
 }

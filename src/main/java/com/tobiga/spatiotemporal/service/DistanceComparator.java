@@ -9,6 +9,10 @@ public class DistanceComparator implements Comparator<RTreeNode> {
         this.queryPoint = queryPoint;
     }
 
+    public DistanceComparator(double queryX, double queryY, double queryZ) {
+        this.queryPoint = new Point(queryX, queryY, queryZ);
+    }
+    
     @Override
     public int compare(RTreeNode node1, RTreeNode node2) {
         double dist1 = node1.getBoundingBox().distanceTo(queryPoint);

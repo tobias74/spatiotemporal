@@ -4,6 +4,9 @@ import com.tobiga.spatiotemporal.service.RTreeService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/geopoints")
 public class GeopointController {
@@ -42,6 +45,27 @@ public class GeopointController {
             return ResponseEntity.status(500).body("Error deleting geopoint.");
         }
     }
+
+    @GetMapping("/nearest")
+    public ResponseEntity<List<Map<String, Object>>> getNearestGeopoints(
+            @RequestParam double lat,
+            @RequestParam double lon,
+            @RequestParam long startTimestamp,
+            @RequestParam long endTimestamp,
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(defaultValue = "0") int offset) {
+
+        try {
+            // Call the RTreeService method to find nearest geopoints
+            List<Map<String, Object>> nearestGeopoints = rTreeService.getNearestGeopoints(lat, lon, startTimestamp, endTimestamp, limit, offset);
+
+            return ResponseEntity.ok(nearestGeopoints);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(null);
+        }
+    }
+
 
     /*
     @GetMapping("/query")
