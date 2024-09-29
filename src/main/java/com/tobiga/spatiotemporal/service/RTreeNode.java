@@ -9,11 +9,10 @@ public class RTreeNode {
     private boolean isRoot;
     private Integer parentId;
 
-    public RTreeNode(Integer id, Integer parentId, BoundingBox boundingBox, boolean isLeaf, boolean isRoot) {
+    public RTreeNode(Integer id, Integer parentId, BoundingBox boundingBox, boolean isRoot) {
         this.id = id;
         this.parentId = parentId;  // Set the parent ID
         this.boundingBox = boundingBox;
-        this.isLeaf = isLeaf;
         this.isRoot = isRoot;
     }
 
@@ -28,10 +27,6 @@ public class RTreeNode {
 
     public Integer getParentId() {
         return parentId;
-    }
-
-    public boolean isLeaf() {
-        return isLeaf;
     }
 
     public BoundingBox getBoundingBox() {

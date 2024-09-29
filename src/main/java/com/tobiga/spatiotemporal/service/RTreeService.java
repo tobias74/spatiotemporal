@@ -30,6 +30,7 @@ public class RTreeService {
     private final CoordinateService coordinateService;
 
     private static final int NODE_CAPACITY = 4;
+    private static final int UNDERFLOW_THRESHOLD = 2;
 
 
     private SplitStrategy splitStrategy;
@@ -50,7 +51,6 @@ public class RTreeService {
                     "minX REAL, maxX REAL, " +
                     "minY REAL, maxY REAL, " +
                     "minZ REAL, maxZ REAL, " +
-                    "isLeaf BOOLEAN, " +
                     "FOREIGN KEY(parent_id) REFERENCES rtree_nodes(id)" +
                     ");");
 
@@ -81,13 +81,12 @@ public class RTreeService {
 
                 if (rootExists == 0) {
                     // Insert the initial root node if it doesn't exist
-                    jdbcTemplate.update("INSERT INTO rtree_nodes (id, parent_id, minX, maxX, minY, maxY, minZ, maxZ, isLeaf) " +
-                                    "VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)",
+                    jdbcTemplate.update("INSERT INTO rtree_nodes (id, parent_id, minX, maxX, minY, maxY, minZ, maxZ ) " +
+                                    "VALUES (?, NULL, ?, ?, ?, ?, ?, ?)",
                             1,  // Root node ID
                             Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,  // Bounding box (entire space)
                             Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,
-                            Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,
-                            true  // Root is a leaf initially
+                            Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY
                     );
                     System.out.println("Root node inserted.");
                 }
@@ -154,12 +153,12 @@ public class RTreeService {
         Point point = new Point(x, y, z);
 
         // Traverse the tree until we reach a leaf node
-        while (!currentNode.isLeaf()) {
+        while (true) {
             // Load the children of the current node
             List<RTreeNode> children = loadChildrenFromDatabase(currentNode);
 
+            // Check if the current node has no children, meaning it's a leaf
             if (children.isEmpty()) {
-                // Handle the case where there are no children
                 System.out.println("No children found for node " + currentNode.getId() + ", treating as a leaf node.");
                 return currentNode.getId();  // Return the current node if no children are found
             }
@@ -184,26 +183,6 @@ public class RTreeService {
             // Move down the tree to the selected child
             currentNode = bestChild;
         }
-
-        // Return the ID of the leaf node
-        return currentNode.getId();
-    }
-
-    public List<DataPoint> findNearestNeighbors(Point queryPoint, int limit) {
-        RTreeNode root = loadRootFromDatabase();
-        PriorityQueue<RTreeNode> nodeQueue = new PriorityQueue<>(new DistanceComparator(queryPoint));
-        nodeQueue.add(root);
-
-        List<DataPoint> result = new ArrayList<>();
-        while (!nodeQueue.isEmpty() && result.size() < limit) {
-            RTreeNode currentNode = nodeQueue.poll();
-            if (currentNode.isLeaf()) {
-                result.addAll(loadDataPointsFromNode(currentNode.getId())); // Add points from leaf
-            } else {
-                nodeQueue.addAll(loadChildrenFromDatabase(currentNode)); // Traverse children
-            }
-        }
-        return result;
     }
 
     private RTreeNode loadNodeFromDatabase(int nodeId) {
@@ -227,7 +206,6 @@ public class RTreeService {
                     new BoundingBox(rs.getDouble("minX"), rs.getDouble("maxX"),
                             rs.getDouble("minY"), rs.getDouble("maxY"),
                             rs.getDouble("minZ"), rs.getDouble("maxZ")),
-                    rs.getBoolean("isLeaf"),
                     isRoot
             );
         });
@@ -261,7 +239,6 @@ public class RTreeService {
                             new BoundingBox(rs.getDouble("minX"), rs.getDouble("maxX"),
                                     rs.getDouble("minY"), rs.getDouble("maxY"),
                                     rs.getDouble("minZ"), rs.getDouble("maxZ")),
-                            rs.getBoolean("isLeaf"),
                             isRoot
                     );
                 });
@@ -282,8 +259,8 @@ public class RTreeService {
     public void insertNewNode(RTreeNode node) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
-        String sql = "INSERT INTO rtree_nodes (parent_id, minX, maxX, minY, maxY, minZ, maxZ, isLeaf) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO rtree_nodes (parent_id, minX, maxX, minY, maxY, minZ, maxZ) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(sql, new String[]{"id"});
@@ -294,7 +271,6 @@ public class RTreeService {
             ps.setDouble(5, node.getBoundingBox().getMaxY());
             ps.setDouble(6, node.getBoundingBox().getMinZ());
             ps.setDouble(7, node.getBoundingBox().getMaxZ());
-            ps.setBoolean(8, node.isLeaf());
             return ps;
         }, keyHolder);
 
@@ -333,7 +309,7 @@ public class RTreeService {
         );
 
         // Create the new root node
-        RTreeNode newRoot = new RTreeNode(null, null, newRootBoundingBox, false, true);
+        RTreeNode newRoot = new RTreeNode(null, null, newRootBoundingBox, true);
 
         // Insert the new root node into the database and update its ID
         insertNewNode(newRoot);
@@ -369,5 +345,91 @@ public class RTreeService {
         return jdbcTemplate.queryForObject(query, new Object[]{nodeId}, Integer.class);
     }
 
+
+    public void deleteGeopointByExternalId(String externalId) {
+        // Fetch all data points with the external ID
+        List<DataPoint> pointsToDelete = jdbcTemplate.query(
+                "SELECT * FROM data_points WHERE externalId = ?",
+                new Object[]{externalId},
+                (rs, rowNum) -> new DataPoint(
+                        rs.getInt("id"),
+                        rs.getDouble("x"),
+                        rs.getDouble("y"),
+                        rs.getDouble("z"),
+                        rs.getString("externalId"),
+                        rs.getLong("timestamp")
+                )
+        );
+
+        if (pointsToDelete.isEmpty()) {
+            throw new IllegalArgumentException("No DataPoints found for externalId: " + externalId);
+        }
+
+        // Loop through each point and handle them individually
+        for (DataPoint pointToDelete : pointsToDelete) {
+            // Delete the data point from the database
+            jdbcTemplate.update("DELETE FROM data_points WHERE id = ?", pointToDelete.getId());
+
+            // Now check if the node that contained this point underflows
+            int nodeId = findLeafNodeForPoint(pointToDelete.getX(), pointToDelete.getY(), pointToDelete.getZ());
+
+            // Handle underflow for this specific node
+            handleUnderflow(nodeId);
+        }
+    }
+
+
+    private void handleUnderflow(int nodeId) {
+        RTreeNode node = loadNodeFromDatabase(nodeId);
+
+        // Use the number of children to check if the node is a leaf node
+        List<RTreeNode> childNodes = loadChildrenFromDatabase(node);
+
+        // If the node has children, it is not a leaf node, so skip underflow handling for internal nodes
+        if (!childNodes.isEmpty()) {
+            return;
+        }
+
+        // Get the remaining data points in the underflowing node
+        List<DataPoint> remainingDataPoints = loadDataPointsFromNode(nodeId);
+
+        // If there are too few data points, delete the leaf node
+        if (remainingDataPoints.size() < UNDERFLOW_THRESHOLD) {
+            // Delete the underflowing node and its data points from the database
+            deleteDataPointsInNode(nodeId);
+            deleteNode(nodeId);
+
+            // Reinsert the remaining data points into the tree
+            for (DataPoint dataPoint : remainingDataPoints) {
+                insertDataPoint(dataPoint);
+            }
+        }
+    }
+
+    private void deleteDataPointsInNode(int nodeId) {
+        jdbcTemplate.update("DELETE FROM data_points WHERE node_id = ?", nodeId);
+    }
+
+    private Integer findParentIdForNode(int nodeId) {
+        System.out.println("we are finding parent id for node id " + nodeId);
+
+        Integer parentId = jdbcTemplate.queryForObject(
+                "SELECT parent_id FROM rtree_nodes WHERE id = ?",
+                new Object[]{nodeId},
+                (rs, rowNum) -> {
+                    // Log the result set's value for parent_id
+                    Object parentIdValue = rs.getObject("parent_id");
+                    if (parentIdValue != null) {
+                        System.out.println("Parent ID found: " + parentIdValue + " for node ID: " + nodeId);
+                        return rs.getInt("parent_id");
+                    } else {
+                        System.out.println("No parent ID found (null) for node ID: " + nodeId);
+                        return null;
+                    }
+                }
+        );
+
+        return parentId;
+    }
 
 }

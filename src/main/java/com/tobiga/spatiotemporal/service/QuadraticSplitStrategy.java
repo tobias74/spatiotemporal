@@ -24,8 +24,8 @@ public class QuadraticSplitStrategy implements SplitStrategy {
         Pair<DataPoint, DataPoint> seeds = chooseSeeds(dataPoints);
 
         // Create two new child nodes (without ID initially)
-        RTreeNode newNode1 = new RTreeNode(null, node.getId(), new BoundingBox(seeds.getLeft()), true, false);
-        RTreeNode newNode2 = new RTreeNode(null, node.getId(), new BoundingBox(seeds.getRight()), true, false);
+        RTreeNode newNode1 = new RTreeNode(null, node.getId(), new BoundingBox(seeds.getLeft()), false);
+        RTreeNode newNode2 = new RTreeNode(null, node.getId(), new BoundingBox(seeds.getRight()), false);
 
         // Insert the nodes and get their IDs updated
         rTreeService.insertNewNode(newNode1);
