@@ -31,11 +31,11 @@ public class QuadraticSplitStrategy implements SplitStrategy {
         rTreeService.insertNewNode(newNode1);
         rTreeService.insertNewNode(newNode2);
 
-        // Insert data points into nodes
-        rTreeService.insertDataPointIntoNode(newNode1, seeds.getLeft());
-        rTreeService.insertDataPointIntoNode(newNode2, seeds.getRight());
+        // Step 2: Update the data points to reflect their new parent node
+        rTreeService.updateDataPointNodeId(newNode1.getId(), seeds.getLeft());
+        rTreeService.updateDataPointNodeId(newNode2.getId(), seeds.getRight());
 
-        // Step 4: Process remaining points and assign them to the nodes
+        // Step 3: Process remaining points and update their node IDs
         List<DataPoint> remainingPoints = new ArrayList<>(dataPoints);
         remainingPoints.remove(seeds.getLeft());
         remainingPoints.remove(seeds.getRight());
@@ -45,16 +45,17 @@ public class QuadraticSplitStrategy implements SplitStrategy {
             double enlargement2 = newNode2.getBoundingBox().enlargementNeeded(point);
 
             if (enlargement1 < enlargement2) {
-                rTreeService.insertDataPointIntoNode(newNode1, point);
+                rTreeService.updateDataPointNodeId(newNode1.getId(), point);
             } else {
-                rTreeService.insertDataPointIntoNode(newNode2, point);
+                rTreeService.updateDataPointNodeId(newNode2.getId(), point);
             }
         }
 
-        // Call the root handling logic from RTreeService if splitting the root
+        // Check if the current node is the root
         if (node.isRoot()) {
-            rTreeService.handleRootSplit(newNode1, newNode2, node);
+            rTreeService.handleRootSplit(newNode1, newNode2, node);  // Handle root-specific behavior
         }
+
     }
 
     private Pair<DataPoint, DataPoint> chooseSeeds(List<DataPoint> dataPoints) {

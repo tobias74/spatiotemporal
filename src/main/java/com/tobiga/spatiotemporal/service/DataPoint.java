@@ -1,11 +1,21 @@
 package com.tobiga.spatiotemporal.service;
 
-public class DataPoint implements Coordinate{
+public class DataPoint implements Coordinate {
+    private int id;
     private double x;
     private double y;
     private double z;
     private String externalId;
     private long timestamp;
+
+    public DataPoint(int id, double x, double y, double z, String externalId, long timestamp) {
+        this.id = id;
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        this.externalId = externalId;
+        this.timestamp = timestamp;
+    }
 
     public DataPoint(double x, double y, double z, String externalId, long timestamp) {
         this.x = x;
@@ -13,6 +23,14 @@ public class DataPoint implements Coordinate{
         this.z = z;
         this.externalId = externalId;
         this.timestamp = timestamp;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
 
     // Getters and Setters
