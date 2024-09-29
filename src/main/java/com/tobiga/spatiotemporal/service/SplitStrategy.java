@@ -8,5 +8,5 @@ import java.util.List;
 import java.util.ArrayList;
 
 public interface SplitStrategy {
-    List<RTreeNode> splitNode(RTreeNode node);
+    void splitNode(RTreeNode node);
 }

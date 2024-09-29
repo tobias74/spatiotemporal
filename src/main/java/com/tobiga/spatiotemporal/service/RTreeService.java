@@ -303,8 +303,7 @@ public class RTreeService {
 
 
     private void splitNodeRecursive(RTreeNode node) {
-        // Perform the split using the strategy (strategy handles root/non-root distinction)
-        List<RTreeNode> newNodes = splitStrategy.splitNode(node);
+        splitStrategy.splitNode(node);
 
         // In case of a non-root node, handle recursive splitting of parent if needed
         if (!node.isRoot()) {
@@ -341,6 +340,31 @@ public class RTreeService {
 
             System.out.println("New node inserted with ID: " + generatedId);
         }
+    }
+
+    public void handleRootSplit(RTreeNode newNode1, RTreeNode newNode2, RTreeNode oldRoot) {
+        // Create a new root node with bounding box spanning from -Infinity to +Infinity
+        BoundingBox newRootBoundingBox = new BoundingBox(
+                Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,  // X bounds
+                Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,  // Y bounds
+                Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY   // Z bounds
+        );
+
+        // Create the new root node
+        RTreeNode newRoot = new RTreeNode(null, null, newRootBoundingBox, false, true);
+
+        // Insert the new root node into the database and update its ID
+        insertNewNode(newRoot);
+
+        // Update the parent ID of the new child nodes to point to the new root
+        updateParent(newRoot.getId(), newNode1.getId());
+        updateParent(newRoot.getId(), newNode2.getId());
+
+        // Update the metadata to reflect the new root node
+        updateRootNode(newRoot.getId());
+
+        // Optionally delete the old root node (if necessary)
+        deleteNode(oldRoot.getId());
     }
 
 

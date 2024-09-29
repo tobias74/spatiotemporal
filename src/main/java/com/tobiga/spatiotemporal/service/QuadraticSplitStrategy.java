@@ -17,7 +17,7 @@ public class QuadraticSplitStrategy implements SplitStrategy {
     }
 
     @Override
-    public List<RTreeNode> splitNode(RTreeNode node) {
+    public void splitNode(RTreeNode node) {
         List<DataPoint> dataPoints = rTreeService.loadDataPointsFromNode(node.getId());
 
         // Step 1: Choose two seeds that will start the two groups
@@ -51,26 +51,10 @@ public class QuadraticSplitStrategy implements SplitStrategy {
             }
         }
 
-        // Check if the current node is the root
+        // Call the root handling logic from RTreeService if splitting the root
         if (node.isRoot()) {
-            // Create a new root
-            RTreeNode newRoot = new RTreeNode(null, null, BoundingBox.combine(newNode1.getBoundingBox(), newNode2.getBoundingBox()), false, true);
-            rTreeService.insertNewNode(newRoot);
-
-            // Set the parent of new nodes to the new root
-            rTreeService.updateParent(newRoot.getId(), newNode1.getId());
-            rTreeService.updateParent(newRoot.getId(), newNode2.getId());
-
-            // Update metadata to point to the new root
-            rTreeService.updateRootNode(newRoot.getId());
-
-            // Optionally delete the old root node from the database (since it's no longer needed)
-            rTreeService.deleteNode(node.getId());
-
-            return List.of(newNode1, newNode2);  // Return the new child nodes of the new root
+            rTreeService.handleRootSplit(newNode1, newNode2, node);
         }
-
-        return List.of(newNode1, newNode2);  // Return the two new nodes for non-root cases
     }
 
     private Pair<DataPoint, DataPoint> chooseSeeds(List<DataPoint> dataPoints) {
