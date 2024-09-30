@@ -4,26 +4,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome Page</title>
-    <link rel="stylesheet" href="/css/styles.css"> <!-- Assuming a CSS file in static folder -->
+    <title>Spatiotemporal 3D-Rtree</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 0;
+            text-align: center;
+        }
+
+        main {
+            margin: 20px;
+            text-align: center;
+        }
+
+        footer {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 10px 0;
+            position: fixed;
+            width: 100%;
+            bottom: 0;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .content {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        h1 {
+            font-size: 2em;
+        }
+
+        p {
+            font-size: 1.2em;
+            line-height: 1.6;
+        }
+
+        ul {
+            text-align: left;
+            margin: 0 auto;
+            display: inline-block;
+            list-style-type: disc;
+            padding-left: 20px;
+        }
+
+        li {
+            font-size: 1.2em;
+            margin-bottom: 5px;
+        }
+
+        a {
+            color: #4CAF50;
+            text-decoration: none;
+        }
+    </style>
 </head>
 
 <body>
 
-    <header>
-        <h1>Welcome to Spatiotemporal Application</h1>
-    </header>
+<header>
+    <h1>Welcome!</h1>
+</header>
 
-    <main>
-        <p>This is a simple template for Spring Boot's Thymeleaf integration.</p>
+<main>
+    <div class="content">
+        <h2>About the Project</h2>
+        <p>This Java-based Spring Boot application implements a minimalistic R-tree index using SQLite. The R-tree is
+            used for efficient spatial sorting by distance to a query point, making it a powerful tool for spatial data
+            queries.</p>
+        <p>It's designed to be simple yet effective, enabling fast querying of data points based on proximity without
+            requiring a full spatial database.</p>
 
-        <!-- Example dynamic data -->
-        <p th:text="'Hello, ' + ${username} + '!'">Hello, User!</p>
-    </main>
+        <h2>How It Works</h2>
+        <p>The application leverages an R-tree index, a hierarchical data structure commonly used for spatial data, to
+            partition space and speed up searches. In this project, it's applied for spatial queries, specifically for
+            sorting points by distance.</p>
 
-    <footer>
-        <p>Copyright &copy; 2024 Spatiotemporal App</p>
-    </footer>
+        <h2>Technical Details</h2>
+        <ul>
+            <li>Java</li>
+            <li>Spring Boot</li>
+            <li>SQLite</li>
+            <li>R-tree</li>
+        </ul>
+
+    </div>
+</main>
+
+<footer>
+    <p>tobiga UG (haftungsbeschränkt)</p>
+</footer>
 
 </body>
 
