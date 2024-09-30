@@ -30,8 +30,8 @@ and handling underflows within the R-tree.
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/rtree-geopoints-api.git
-   cd rtree-geopoints-api
+   git clone https://github.com/tobias74/spatiotemporal
+   cd spatiotemporal
    ```
 
 2. Build the project using Gradle:
