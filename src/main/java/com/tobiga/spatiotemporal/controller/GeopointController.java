@@ -3,6 +3,7 @@ package com.tobiga.spatiotemporal.controller;
 import com.tobiga.spatiotemporal.service.RTreeService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.tobiga.spatiotemporal.service.CoordinateService;
 
 import java.util.List;
 import java.util.Map;
@@ -12,9 +13,11 @@ import java.util.Map;
 public class GeopointController {
 
     private final RTreeService rTreeService;
+    private final CoordinateService coordinateService;
 
-    public GeopointController(RTreeService RTreeService) {
+    public GeopointController(RTreeService RTreeService, CoordinateService coordinateService) {
         this.rTreeService = RTreeService;
+        this.coordinateService = coordinateService;
     }
 
     // API to insert a new geopoint with lat/lon/alt
@@ -56,8 +59,30 @@ public class GeopointController {
             @RequestParam(defaultValue = "0") int offset) {
 
         try {
-            // Call the RTreeService method to find nearest geopoints
+            // Query for nearest geopoints
             List<Map<String, Object>> nearestGeopoints = rTreeService.getNearestGeopoints(lat, lon, startTimestamp, endTimestamp, limit, offset);
+
+            // Iterate through the results and add the distance using the Haversine formula
+            for (Map<String, Object> geopoint : nearestGeopoints) {
+                double pointX = (double) geopoint.get("x");
+                double pointY = (double) geopoint.get("y");
+                double pointZ = (double) geopoint.get("z");
+
+                // Convert XYZ coordinates back to latitude and longitude
+                double[] latLonAlt = coordinateService.convertXYZToLatLon(pointX, pointY, pointZ);
+                double pointLat = latLonAlt[0];
+                double pointLon = latLonAlt[1];
+
+                // Calculate the distance using the Haversine formula
+                double distance = coordinateService.haversine(lat, lon, pointLat, pointLon);
+
+                // Add the calculated distance to the geopoint result
+                geopoint.put("haversine_distance", distance);
+                geopoint.put("latitude", pointLat);
+                geopoint.put("longitude", pointLon);
+
+                geopoint.remove("id");
+            }
 
             return ResponseEntity.ok(nearestGeopoints);
         } catch (Exception e) {
@@ -65,7 +90,6 @@ public class GeopointController {
             return ResponseEntity.status(500).body(null);
         }
     }
-
 
     /*
     @GetMapping("/query")
